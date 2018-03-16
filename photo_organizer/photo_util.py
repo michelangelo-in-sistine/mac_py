@@ -23,19 +23,25 @@ class ExifUtil:
     @staticmethod
     def get_exif_date_time(jpg_path):
         # return time str if exif time exists, else None
-        img = Image.open(jpg_path)
-        exif_info = img._getexif()
-        if exif_info is not None:
-            return exif_info.get(0x9003, -1)
+        ext = os.path.splitext(jpg_path)[-1][1:].lower()
+        if ext in ('jpg', 'jpeg'):
+            img = Image.open(jpg_path)
+            exif_info = img._getexif()
+            if exif_info is not None:
+                return exif_info.get(0x9003, None)          # if get no date info, return None
         return None
 
     def get_original_year_month(self, jpg_path):
-        ctime = str(self.get_exif_date_time(jpg_path))
-        if ctime is not None:
-            tmp = ctime.split(':')
-            year = tmp[0]
-            month = tmp[1]
-            return year, month
+        exif_time = self.get_exif_date_time(jpg_path)
+        if exif_time is None:
+            ctime = time.strftime(r"%Y:%m:%d %H:%M:%S", time.gmtime(os.path.getctime(jpg_path))) # no exif, ctime is file create time
+        else:
+            ctime = str(exif_time)
+
+        tmp = ctime.split(':')
+        year = tmp[0]
+        month = tmp[1]
+        return year, month
 
 
 class PhotoOrganizor():
@@ -52,6 +58,18 @@ class PhotoOrganizor():
         self.conflicted_files = []
         self.archive_dir = None
         pass
+
+    def reset(self):
+        self.total = 0                      # 处理文件数
+        self.copied = 0                     # 复制文件数
+        self.skipped = 0                    # 因重复而跳过的文件数
+        self.conflicted = 0                 # 同名不同内容冲突文件数
+        self.unsorted = 0                   # 未分类复制文件数
+
+        self.conflicted_files = []
+        self.archive_dir = None
+        pass
+
 
     def debug_out(self, debug_str):
         if self.debug_info:
@@ -127,6 +145,7 @@ class PhotoOrganizor():
         :param archive_dir:
         :return:
         """
+        self.reset()
         if archive_dir[-1] in (r'\/'):
             archive_dir = archive_dir[:-1]
         self.archive_dir = archive_dir
@@ -138,11 +157,12 @@ class PhotoOrganizor():
                 self.organize(item, archive_dir, depth-1)
             else:
                 ext = os.path.splitext(item)[-1][1:].lower()
-                if ext in ('jpg', 'jpeg', 'png'):
+                if ext in ('jpg', 'jpeg', 'png', 'gif'):
                     result = self.archive_jpg(item, archive_dir)
                 elif ext in ('mov', 'mp4'):
                     target_dir = archive_dir + r'/video'
-                    result = self.cp_file_to_target(item, target_dir)
+                    # result = self.cp_file_to_target(item, target_dir)
+                    result = self.archive_jpg(item, target_dir)             # 视频文件也按时间分类
                 else:
                     target_dir = archive_dir + r'/misc'
                     result = self.cp_file_to_target(item, target_dir)
@@ -165,6 +185,9 @@ class PhotoOrganizor():
 
 if __name__ == '__main__':
     org = PhotoOrganizor(debug_info=True)
-
-    org.organize(r'/Users/Mac/temp/src', r'/Users/Mac/temp/tar')
+    org.organize(r'e:\Users\Mac\Downloads\IPhone6_2017_12_03', r'\\192.168.1.251\main\test\org_mac')
     org.report()
+
+    org.organize(r'e:\Users\Mac\Downloads\IPhone7_2017_12_03', r'\\192.168.1.251\main\test\org_joe')
+    org.report()
+
