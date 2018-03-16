@@ -36,7 +36,15 @@ class ExifUtil:
         if exif_time is None:
             ctime = time.strftime(r"%Y:%m:%d %H:%M:%S", time.gmtime(os.path.getctime(jpg_path))) # no exif, ctime is file create time
         else:
-            ctime = str(exif_time)
+            try:
+                if type(exif_time) == unicode:
+                    print 'unicode exif'
+                    ctime = str(exif_time[:19])
+                else:
+                    ctime = str(exif_time)
+            except Exception:
+                print 'exif error'
+                ctime = time.strftime(r"%Y:%m:%d %H:%M:%S", time.gmtime(os.path.getctime(jpg_path))) # no exif, ctime is file create time
 
         tmp = ctime.split(':')
         year = tmp[0]
@@ -44,7 +52,7 @@ class ExifUtil:
         return year, month
 
 
-class PhotoOrganizor():
+class PhotoOrganizor:
     def __init__(self, debug_info=True):
         self.exif_util = ExifUtil()
         self.debug_info = debug_info
@@ -69,7 +77,6 @@ class PhotoOrganizor():
         self.conflicted_files = []
         self.archive_dir = None
         pass
-
 
     def debug_out(self, debug_str):
         if self.debug_info:
